@@ -1,8 +1,8 @@
-// Greece 2026 — offline service worker
+// Fellowship Fayetteville — offline service worker
 // Precaches the app shell + displayed images so the app works offline after
 // the first online visit. Audio/video stream (not precached). The unused
 // full-size day itinerary PNGs are intentionally excluded.
-const CACHE = 'acts-fellowship-v1';
+const CACHE = 'acts-fellowship-v20';
 const PRECACHE = [
   "./",
   "index.html",
@@ -58,7 +58,10 @@ const PRECACHE = [
   "assets/hero-7.jpg",
   "assets/hero-8.jpg",
   "assets/hero-9.jpg",
-  "assets/hero-logo.png",
+  "assets/olive-grove.jpg",
+  "assets/pale-hills.jpg",
+  "assets/golden-scrub.jpg",
+  "assets/far-mountain.jpg",
   "assets/home-aerial.jpg",
   "assets/icon-192.png",
   "assets/icon-512.png"

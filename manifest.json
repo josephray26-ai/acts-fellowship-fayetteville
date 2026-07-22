@@ -1,11 +1,11 @@
 {
-  "name": "Acts Fellowship",
-  "short_name": "Acts Fellowship",
-  "description": "Acts Fellowship study companion.",
+  "name": "Fellowship Fayetteville",
+  "short_name": "Fellowship",
+  "description": "Fellowship Fayetteville \u2014 a study of Acts.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0A1628",
-  "theme_color": "#0A1628",
+  "background_color": "#14180F",
+  "theme_color": "#14180F",
   "icons": [
     {
       "src": "assets/icon-192.png",
