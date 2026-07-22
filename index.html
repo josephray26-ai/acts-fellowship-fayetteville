@@ -868,6 +868,20 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 #script-modal-body .dq-bul   { font-size: calc(9.5px * var(--sfs, 2)); }
 #script-modal-body .dq-input { font-size: calc(10px * var(--sfs, 2)); }
 
+/* ── Notes autosave status ───────────────────────────────────────────────
+   Replaces the "Save Note" button in both note sheets. Sits where the button
+   did, right-aligned, so the footer keeps its shape and the A-/A+ (or Delete)
+   controls stay put. */
+.notes-status {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; line-height: 1.3;
+  color: var(--md-sys-color-on-surface-variant);
+  padding-right: 4px;
+}
+.notes-status .material-symbols-rounded { font-size: 16px; }
+.notes-status--saved .material-symbols-rounded { color: var(--md-sys-color-primary); }
+
 /* ── HOW TO USE THIS GUIDE ────────────────────────────────────────────────
    A reading page, not a stack of cards. Typography deliberately echoes the
    printed study journal — monospace rules and headings, a serif lead, a wide
@@ -9943,6 +9957,44 @@ function openVerseNoteFromBar() {
   if (!activeVerseEl) return;
   openVerseNoteModal(currentScriptId, activeVerseEl.dataset.verse);
 }
+/* ── #verse-note-modal — notes on a highlighted verse ──────────────────── */
+
+function verseNoteInput() {
+  _naStatus('verse-note-status', 'Saving…', false);
+  clearTimeout(_vnTimer);
+  _vnTimer = setTimeout(verseNoteSave, 400);
+}
+
+function verseNoteSave() {
+  clearTimeout(_vnTimer);
+  _vnTimer = null;
+  if (!verseNoteCtx) return;
+  const scriptId = verseNoteCtx.scriptId, vn = verseNoteCtx.vn;
+  const ta = document.getElementById('verse-note-textarea');
+  const text = ta ? ta.value : '';
+  if (!verseNotes[scriptId]) verseNotes[scriptId] = {};
+  // Emptying the box removes the note — that is what autosave means here.
+  if (text.trim()) verseNotes[scriptId][vn] = { note: text, ref: verseRefFor(vn), dayKey: currentScriptDayKey };
+  else delete verseNotes[scriptId][vn];
+  try { localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes)); } catch (e) {}
+
+  if (activeVerseEl && activeVerseEl.dataset.verse === vn) {
+    if (text.trim()) activeVerseEl.classList.add('verse-selected', 'verse-has-note');
+    else activeVerseEl.classList.remove('verse-has-note');
+    const lab = document.getElementById('verse-options-note-label');
+    if (lab) lab.textContent = text.trim() ? 'Edit Note' : 'Add Note';
+  }
+  const del = document.getElementById('verse-note-delete');
+  if (del) del.style.display = text.trim() ? '' : 'none';
+  if (currentScriptDayKey) syncVerseNotesToDay(currentScriptDayKey);
+
+  _naStatus('verse-note-status', 'Saved', true);
+  clearTimeout(_vnStatusTimer);
+  _vnStatusTimer = setTimeout(function () {
+    _naStatus('verse-note-status', 'Notes save as you type', true);
+  }, 1600);
+}
+
 function openVerseNoteModal(scriptId, vn) {
   verseNoteCtx = { scriptId, vn };
   const existing = (verseNotes[scriptId] && verseNotes[scriptId][vn]) ? verseNotes[scriptId][vn].note : '';
@@ -9950,36 +10002,30 @@ function openVerseNoteModal(scriptId, vn) {
   const ta = document.getElementById('verse-note-textarea');
   ta.value = existing || '';
   document.getElementById('verse-note-delete').style.display = (existing && existing.trim()) ? '' : 'none';
+  _naStatus('verse-note-status', 'Notes save as you type', true);
   document.getElementById('verse-note-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  setTimeout(() => ta.focus(), 150);
+  setTimeout(function () { ta.focus(); }, 150);
 }
+
 function closeVerseNoteModal() {
+  verseNoteSave();                  // flush any pending debounce
   document.getElementById('verse-note-modal').classList.remove('open');
   document.body.style.overflow = document.getElementById('script-modal').classList.contains('open') ? 'hidden' : '';
   verseNoteCtx = null;
 }
-function saveVerseNote() {
-  if (!verseNoteCtx) return;
-  const scriptId = verseNoteCtx.scriptId, vn = verseNoteCtx.vn;
-  const text = document.getElementById('verse-note-textarea').value;
-  if (!verseNotes[scriptId]) verseNotes[scriptId] = {};
-  if (text.trim()) verseNotes[scriptId][vn] = { note: text, ref: verseRefFor(vn), dayKey: currentScriptDayKey };
-  else delete verseNotes[scriptId][vn];
-  localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes));
-  if (activeVerseEl && activeVerseEl.dataset.verse === vn) {
-    if (text.trim()) activeVerseEl.classList.add('verse-selected', 'verse-has-note');
-    else activeVerseEl.classList.remove('verse-has-note');
-    document.getElementById('verse-options-note-label').textContent = text.trim() ? 'Edit Note' : 'Add Note';
-  }
-  if (currentScriptDayKey) syncVerseNotesToDay(currentScriptDayKey);
-  closeVerseNoteModal();
-}
+
 function deleteVerseNote() {
   if (!verseNoteCtx) return;
   const scriptId = verseNoteCtx.scriptId, vn = verseNoteCtx.vn;
+  clearTimeout(_vnTimer);
+  _vnTimer = null;
+  // Blank the box FIRST: closeVerseNoteModal() flushes, and a flush that still
+  // saw the old text would write the note straight back after the delete.
+  const ta = document.getElementById('verse-note-textarea');
+  if (ta) ta.value = '';
   if (verseNotes[scriptId]) delete verseNotes[scriptId][vn];
-  localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes));
+  try { localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes)); } catch (e) {}
   if (activeVerseEl && activeVerseEl.dataset.verse === vn) activeVerseEl.classList.remove('verse-has-note', 'verse-selected');
   if (currentScriptDayKey) syncVerseNotesToDay(currentScriptDayKey);
   closeVerseNoteModal();
@@ -10094,6 +10140,81 @@ const DEFAULT_NOTES = {
   'biblical_day_6': `Paul's Book to the Ephesians\nEstimated Date Written: A.D. 60–62\nLikely Written From: Rome during Paul's first imprisonment\n\nTimeline Context\nA.D. 52–55: Paul ministers extensively in Ephesus during his third missionary journey (Acts 19).\nA.D. 57: Arrested in Jerusalem.\nA.D. 57–59: Imprisoned in Caesarea.\nA.D. 60–62: Under house arrest in Rome.\nA.D. 60–62: Writes Ephesians, along with Philippians, Colossians, and Philemon.\n\nPaul writes to explain God's eternal plan to unite Jews and Gentiles into one body through Jesus Christ. He emphasizes salvation by grace, the believer's new identity in Christ, and the unity of the church. The final section challenges believers to walk worthy of their calling and stand firm against spiritual warfare through the armor of God.`
 };
 
+/* ═══════════════════════════════════════════════════
+   NOTES AUTOSAVE — every note in the app now behaves like the Discussion
+   Questions answer sheet: debounced save while typing, an immediate save on
+   blur, and a flush on close so a keystroke made just before dismissing the
+   sheet cannot be lost. No Save button anywhere.
+
+   Two sheets cover four places, because #notes-modal is shared:
+     · Sermon Notes            (Study,    acts_wk<N>_notes)
+     · Daily reading pencil    (Devotion, acts_wk<N>_read<i>)
+     · Quiet Time week notes   (Devotion, acts_wk<N>_notes)
+     · Scripture verse notes   (#verse-note-modal, acts_verseNotes)
+
+   Separate debounce timers per sheet: the verse sheet opens ON TOP of the
+   script modal, so one shared timer could have a close on one cancelling a
+   pending write on the other.
+   ═══════════════════════════════════════════════════ */
+let _naTimer = null, _naStatusTimer = null;
+let _vnTimer = null, _vnStatusTimer = null;
+
+// What openNotesModal loaded, plus whether the user has actually typed. Both
+// are needed: without _noteTouched, editing and then undoing back to the
+// original text would skip the save and leave the INTERMEDIATE value stored.
+let _noteInitial = '', _noteTouched = false;
+// Re-rendering a week card costs a full rebuild, so it is deferred to close
+// rather than run on every debounce tick.
+let _noteDirtyWeek = null;
+
+function _naStatus(id, text, saved) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<span class="material-symbols-rounded">' + (saved ? 'cloud_done' : 'sync')
+    + '</span><span>' + text + '</span>';
+  el.classList.toggle('notes-status--saved', !!saved);
+}
+
+/* ── #notes-modal — Sermon Notes, reading pencils, Quiet Time ──────────── */
+
+function noteInput() {
+  _naStatus('notes-status', 'Saving…', false);
+  clearTimeout(_naTimer);
+  _naTimer = setTimeout(noteSave, 400);
+}
+
+function noteSave() {
+  clearTimeout(_naTimer);
+  _naTimer = null;
+  const ta = document.getElementById('notes-textarea');
+  if (!ta || currentNoteKey === null) return;
+  // An untouched sheet must not persist anything — otherwise merely opening a
+  // note that has DEFAULT_NOTES text and closing it would silently adopt that
+  // default as the user's own writing.
+  if (!_noteTouched && ta.value === _noteInitial) return;
+  _noteTouched = true;
+
+  notesData[currentNoteKey] = ta.value;
+  try { localStorage.setItem('acts_notes', JSON.stringify(notesData)); } catch (e) {}
+
+  // Cheap in-place indicator updates; the expensive card rebuild waits for close.
+  const has = !!ta.value.trim();
+  document.querySelectorAll('[data-note-key="' + currentNoteKey + '"]').forEach(function (btn) {
+    const lab = btn.querySelector('.note-btn-label');
+    if (lab) lab.textContent = has ? 'Edit Notes' : 'Add Notes';
+    // The reading pencil has no label — it shows state as a class.
+    if (btn.classList.contains('qt-note')) btn.classList.toggle('has-note', has);
+  });
+  const _wk = /^acts_wk(\d+)_/.exec(currentNoteKey || '');
+  if (_wk) _noteDirtyWeek = parseInt(_wk[1], 10);
+
+  _naStatus('notes-status', 'Saved', true);
+  clearTimeout(_naStatusTimer);
+  _naStatusTimer = setTimeout(function () {
+    _naStatus('notes-status', 'Notes save as you type', true);
+  }, 1600);
+}
+
 function openNotesModal(key, title) {
   currentNoteKey = key;
   document.getElementById('notes-modal-title').textContent = title + ' — Notes';
@@ -10101,36 +10222,28 @@ function openNotesModal(key, title) {
   // Use saved note if it exists (even if empty); otherwise fall back to default
   ta.value = (notesData[key] !== undefined) ? notesData[key] : (DEFAULT_NOTES[key] || '');
   ta.style.fontSize = notesFontSize + 'px';
+  _noteInitial = ta.value;
+  _noteTouched = false;
+  _noteDirtyWeek = null;
+  _naStatus('notes-status', 'Notes save as you type', true);
   document.getElementById('notes-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  setTimeout(() => ta.focus(), 150);
+  setTimeout(function () { ta.focus(); }, 150);
 }
 
 function closeNotesModal() {
+  noteSave();                       // flush any pending debounce
+  if (_noteDirtyWeek !== null) {
+    const n = _noteDirtyWeek;
+    if (activeSection === 'biblical' && typeof refreshDevotionCard === 'function') refreshDevotionCard(n);
+    else if (activeSection === 'itinerary' && typeof renderWeekDetail === 'function') renderWeekDetail(n);
+    _noteDirtyWeek = null;
+  }
   document.getElementById('notes-modal').classList.remove('open');
   document.body.style.overflow = '';
   currentNoteKey = null;
-}
-
-function saveNote() {
-  const ta = document.getElementById('notes-textarea');
-  if (currentNoteKey !== null) {
-    notesData[currentNoteKey] = ta.value;
-    localStorage.setItem('acts_notes', JSON.stringify(notesData));
-    // Refresh the indicator on the button
-    const btn = document.querySelector(`[data-note-key="${currentNoteKey}"]`);
-    const lab = btn && btn.querySelector('.note-btn-label');
-    if (lab) lab.textContent = ta.value.trim() ? 'Edit Notes' : 'Add Notes';
-    // Reading rows show a filled pencil instead of a label, so re-render the
-    // week this note belongs to (in whichever tab is showing it).
-    const _wk = /^acts_wk(\d+)_/.exec(currentNoteKey || '');
-    if (_wk) {
-      const _n = parseInt(_wk[1], 10);
-      if (activeSection === 'biblical' && typeof refreshDevotionCard === 'function') refreshDevotionCard(_n);
-      else if (activeSection === 'itinerary' && typeof renderWeekDetail === 'function') renderWeekDetail(_n);
-    }
-  }
-  closeNotesModal();
+  _noteTouched = false;
+  _noteInitial = '';
 }
 
 function adjustNotesFontSize(delta) {
@@ -12690,11 +12803,11 @@ function _onCtaScroll() {
         <span class="material-symbols-rounded">close</span>
       </button>
     </div>
-    <textarea id="notes-textarea" class="notes-textarea" placeholder="Write your notes here…"></textarea>
+    <textarea id="notes-textarea" class="notes-textarea" placeholder="Write your notes here…" oninput="noteInput()" onblur="noteSave()"></textarea>
     <div class="notes-footer">
       <button class="notes-size-btn" onclick="adjustNotesFontSize(-1)" title="Smaller text">A−</button>
       <button class="notes-size-btn" onclick="adjustNotesFontSize(1)" title="Larger text">A+</button>
-      <button class="notes-save-btn" onclick="saveNote()">Save Note</button>
+      <div class="notes-status notes-status--saved" id="notes-status"><span class="material-symbols-rounded">cloud_done</span><span>Notes save as you type</span></div>
     </div>
   </div>
 </div>
@@ -12723,10 +12836,10 @@ function _onCtaScroll() {
         <span class="material-symbols-rounded">close</span>
       </button>
     </div>
-    <textarea id="verse-note-textarea" class="notes-textarea" style="flex:none;height:34vh;" placeholder="Add a note for this verse\u2026"></textarea>
+    <textarea id="verse-note-textarea" class="notes-textarea" style="flex:none;height:34vh;" placeholder="Add a note for this verse\u2026" oninput="verseNoteInput()" onblur="verseNoteSave()"></textarea>
     <div class="notes-footer">
       <button class="notes-size-btn" id="verse-note-delete" onclick="deleteVerseNote()" style="display:none;">Delete</button>
-      <button class="notes-save-btn" onclick="saveVerseNote()">Save Note</button>
+      <div class="notes-status notes-status--saved" id="verse-note-status"><span class="material-symbols-rounded">cloud_done</span><span>Notes save as you type</span></div>
     </div>
   </div>
 </div>
