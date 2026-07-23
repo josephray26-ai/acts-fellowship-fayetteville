@@ -882,6 +882,134 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .notes-status .material-symbols-rounded { font-size: 16px; }
 .notes-status--saved .material-symbols-rounded { color: var(--md-sys-color-primary); }
 
+/* ── Rich-text notes: formatting toolbar + contenteditable editor ─────────
+   Both note sheets (Sermon/reading/Quiet-Time and Scripture verse notes) use a
+   contenteditable div with a toolbar above it. execCommand drives the marks. */
+.fmt-bar {
+  flex-shrink: 0; position: relative;
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface);
+}
+.fmt-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex-shrink: 0;
+  border: none; border-radius: 8px; background: transparent; cursor: pointer;
+  color: var(--md-sys-color-on-surface-variant);
+  -webkit-tap-highlight-color: transparent;
+}
+.fmt-btn:active { background: var(--md-sys-color-surface-variant); }
+.fmt-btn .material-symbols-rounded { font-size: 20px; }
+.fmt-sep { width: 1px; height: 22px; margin: 0 5px; background: var(--md-sys-color-outline-variant); flex-shrink: 0; }
+
+/* swatch popover under the colour / highlight buttons */
+.fmt-pop {
+  display: none;
+  position: absolute; top: calc(100% + 4px); right: 10px; z-index: 5;
+  padding: 8px; gap: 8px;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px; box-shadow: var(--md-sys-elevation-2, 0 6px 20px rgba(0,0,0,0.22));
+}
+.fmt-pop.open { display: flex; flex-wrap: wrap; max-width: 200px; }
+.fmt-sw {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 50%; cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fmt-sw:active { transform: scale(0.9); }
+.fmt-sw--none {
+  background:
+    linear-gradient(45deg, transparent 44%, #D64545 44%, #D64545 56%, transparent 56%),
+    var(--md-sys-color-surface) !important;
+}
+
+/* the editor itself reuses .notes-textarea for padding/scroll/type, plus: */
+.notes-editor { outline: none; -webkit-user-select: text; user-select: text; }
+.notes-editor.is-empty:before {
+  content: attr(data-placeholder);
+  color: var(--md-sys-color-on-surface-variant); opacity: 0.6;
+  pointer-events: none;
+}
+.notes-editor ul, .notes-editor ol { padding-left: 1.5em; margin: 6px 0; }
+.notes-editor li { list-style: disc; margin: 2px 0; }
+.notes-editor ol li { list-style: decimal; }
+.notes-editor b, .notes-editor strong { font-weight: 700; }
+
+/* auto-managed "Scripture Notes" block mirrored from verse notes */
+.vn-auto {
+  margin-top: 16px; padding: 12px 14px;
+  border-radius: 10px; border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--devotion-gold-bg);
+}
+.vn-auto-head {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--devotion-gold-strong); margin-bottom: 8px;
+}
+.vn-row { margin: 6px 0; font-size: 0.95em; }
+.vn-ref {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-weight: 600; color: var(--md-sys-color-on-surface); margin-right: 6px;
+}
+.vn-body { color: var(--md-sys-color-on-surface-variant); }
+
+/* A highlight is a pale wash; in dark theme the light default ink on top of it
+   is unreadable. Force dark ink on any highlighted run, in BOTH themes. A user's
+   explicit text colour is inline on the span and still wins by proximity, so
+   coloured-on-highlighted text is untouched — only the default ink is pinned. */
+.notes-editor [style*="background-color"],
+.notes-editor [style*="background:"] { color: #1A2013; }
+
+/* ── Scripture word-level highlighting ───────────────────────────────────
+   Each word is a `.hl-w` span. Vertical drags must still scroll, so the scroll
+   container gets touch-action: pan-y (touch-action is ignored on inline spans,
+   so it lives on the container); horizontal drags are then cancelable and the
+   JS paints them. */
+#script-modal-body { touch-action: pan-y; }
+.hl-w {
+  cursor: pointer; border-radius: 3px;
+  -webkit-user-select: none; user-select: none;
+  transition: background-color 0.12s ease;
+}
+/* Highlight fills, with dark ink forced in BOTH themes — a pale wash under the
+   dark-theme light ink would be unreadable (same rule as the rich-text notes). */
+.hl-w.hl-c1, .hl-w.hl-c2, .hl-w.hl-c3, .hl-w.hl-c4, .hl-w.hl-c5 { color: #1A2013; }
+.hl-w.hl-c1 { background-color: #A3DDCD; }   /* green (default)  */
+.hl-w.hl-c2 { background-color: #FCE38A; }   /* yellow           */
+.hl-w.hl-c3 { background-color: #A8D8F0; }   /* blue             */
+.hl-w.hl-c4 { background-color: #F4B8D0; }   /* pink             */
+.hl-w.hl-c5 { background-color: #FFC48A; }   /* orange           */
+/* a verse that carries a note underlines its words */
+.hl-w.verse-noted {
+  text-decoration: underline; text-decoration-style: dotted;
+  text-decoration-color: var(--md-sys-color-primary); text-underline-offset: 3px;
+}
+
+/* Colour popover above the options bar */
+.verse-color-pop {
+  display: none;
+  position: absolute; bottom: calc(100% + 8px); right: 4px;
+  gap: 8px; padding: 10px 12px;
+  background: var(--md-sys-color-surface-container, var(--md-sys-color-surface));
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.28);
+}
+.verse-color-pop.open { display: flex; }
+.hl-sw {
+  width: 30px; height: 30px; flex-shrink: 0; padding: 0;
+  border: 1px solid rgba(0,0,0,0.18); border-radius: 50%; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hl-sw:active { transform: scale(0.9); }
+.hl-sw-none {
+  background:
+    linear-gradient(45deg, transparent 45%, #D64545 45%, #D64545 55%, transparent 55%),
+    var(--md-sys-color-surface);
+}
+
 /* ── HOW TO USE THIS GUIDE ────────────────────────────────────────────────
    A reading page, not a stack of cards. Typography deliberately echoes the
    printed study journal — monospace rules and headings, a serif lead, a wide
@@ -2813,7 +2941,7 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       <div class="cta-bg"><img loading="lazy" src="assets/far-mountain.jpg" alt="A distant mountain across an open plain"></div>
       <div class="cta-content">
         <div class="cta-eyebrow reveal-item">Jerusalem to Rome</div>
-        <h2 class="cta-title reveal-item">Explore</h2>
+        <h2 class="cta-title reveal-item">Insights</h2>
         <p class="cta-text reveal-item">Follow the gospel as it travels &mdash; out of a locked upper room, through Samaria and Antioch and Ephesus, all the way to the household of Caesar.</p>
         <button class="cta-btn reveal-item" type="button" onclick="goToTab('explore')">Trace the Journey <span class="material-symbols-rounded">arrow_forward</span></button>
       </div>
@@ -2897,7 +3025,7 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <div class="nav-indicator"></div>
     <!-- Explore is about the scriptures now, not sites: compass -> insight lamp -->
     <span class="material-symbols-rounded">lightbulb</span>
-    <span class="nav-label">Explore</span>
+    <span class="nav-label">Insights</span>
   </button>
   <button class="nav-tab nav-tab--feature" data-section="itinerary">
     <div class="nav-indicator"></div>
@@ -9842,41 +9970,110 @@ function adjustScriptFontSize(delta) {
 }
 // Scripture modal: wrap each verse so a tap highlights it (light teal) and
 // opens an options bar (Copy / Add Note).
-function enhanceScriptureVerses() {
-  const body = document.getElementById('script-modal-body');
-  if (!body) return;
-  body.querySelectorAll('p.script-body').forEach(p => {
-    if (p.dataset.versesWrapped) return;
-    const childNodes = Array.from(p.childNodes);
-    const isVerseMarker = n => n.nodeType === 1 && n.tagName === 'STRONG' && /^\d+$/.test((n.textContent || '').trim());
-    if (!childNodes.some(isVerseMarker)) return;
-    p.dataset.versesWrapped = '1';
-    const groups = [];
-    let current = null;
-    childNodes.forEach(node => {
-      if (isVerseMarker(node) || !current) {
-        current = document.createElement('span');
-        current.className = 'script-verse';
-        if (isVerseMarker(node)) current.dataset.verse = node.dataset.v || node.textContent.trim();
-        current.addEventListener('click', e => onVerseTap(e.currentTarget));
-        groups.push(current);
-      }
-      current.appendChild(node);
-    });
-    p.innerHTML = '';
-    groups.forEach(g => p.appendChild(g));
-  });
-  applyStoredVerseNotes();
-}
+/* ═══════════════════════════════════════════════════
+   SCRIPTURE HIGHLIGHTING — word-level, persistent, recolourable.
 
-/* ── Scripture verse notes + options bar ── */
+   Replaces the inherited tap-a-whole-verse behaviour. Every word in a passage
+   is wrapped in a `.hl-w` span (so this also works on POETRY, whose verse
+   markers are nested inside `.pl` lines and were never tap-wrapped before).
+
+     · tap a word            -> toggle its highlight in the active colour
+     · slide across words     -> paint that run (horizontal drag; vertical still
+                                 scrolls, via touch-action: pan-y)
+     · tap the verse number   -> toggle the whole verse
+     · options bar            -> Colour (recolour the current selection + set the
+                                 default) and Add Note
+
+   Highlights persist on their own — no note required — in `acts_highlights`,
+   keyed `[scriptId][verse][wordIndex] = colourId`. The DOM is the source of
+   truth: after any change the open passage is re-serialised. Notes stay in the
+   separate `acts_verseNotes`; a noted verse underlines its words (`verse-noted`).
+   Each word span folds in its trailing space, so a multi-word run reads as one
+   continuous highlight instead of striped words.
+   ═══════════════════════════════════════════════════ */
+
 let verseNotes = {};
 try { verseNotes = JSON.parse(localStorage.getItem('acts_verseNotes') || '{}'); } catch (e) { verseNotes = {}; }
+let verseHighlights = {};
+try { verseHighlights = JSON.parse(localStorage.getItem('acts_highlights') || '{}'); } catch (e) { verseHighlights = {}; }
+
 let currentScriptId = null;
 let currentScriptRef = '';      // e.g. "Acts 1"
 let currentScriptDayKey = null; // notes key for the day this scripture was opened from
-let activeVerseEl = null;
+let activeVerseEl = null;       // kept for compat; the model now uses activeVerseVn
+let activeVerseVn = null;       // verse the options bar / Add Note currently targets
 let verseNoteCtx = null;        // { scriptId, vn }
+
+const HL_COLORS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+let hlActiveColor = 'c1';       // default: green (matches the old selection tint)
+let _hlWords = [];              // all word spans in document (== global-index) order
+let _hlSelection = [];          // words touched by the last tap / drag (Colour recolours these)
+
+/* ── build: wrap every word, then re-apply saved highlights + note underlines ─ */
+
+function enhanceScriptureVerses() {
+  const body = document.getElementById('script-modal-body');
+  if (!body) return;
+  let gi = 0;
+  const perVerse = {};
+
+  body.querySelectorAll('p.script-body').forEach(function (p) {
+    if (p.dataset.hlWrapped) return;
+    p.dataset.hlWrapped = '1';
+
+    // Collect nodes first (we mutate as we go). Track the current verse from the
+    // most recent <strong data-v> marker, so poetry (markers nested in .pl) works.
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+
+    let curVerse = null;
+    nodes.forEach(function (node) {
+      if (node.nodeType === 1 && node.tagName === 'STRONG' && node.dataset.v) {
+        curVerse = node.dataset.v;
+        return;
+      }
+      if (node.nodeType !== 3) return;
+      // skip the digits inside a verse-number <strong>
+      if (node.parentNode && node.parentNode.tagName === 'STRONG' && node.parentNode.dataset.v) return;
+      const text = node.nodeValue;
+      if (!text || !text.trim()) return;
+
+      const frag = document.createDocumentFragment();
+      // each token carries its surrounding whitespace, so a run reads as one
+      // continuous highlight — including across inline spans like the small-caps
+      // divine name, where the adjoining space would otherwise sit unhighlighted
+      (text.match(/\s*\S+\s*/g) || []).forEach(function (tok) {
+        const w = document.createElement('span');
+        w.className = 'hl-w';
+        w.dataset.gi = String(gi++);
+        if (curVerse != null) {
+          w.dataset.verse = curVerse;
+          perVerse[curVerse] = (perVerse[curVerse] || 0) + 1;
+          w.dataset.wi = String(perVerse[curVerse] - 1);
+        }
+        w.textContent = tok;
+        frag.appendChild(w);
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
+  });
+
+  _hlWords = Array.prototype.slice.call(body.querySelectorAll('.hl-w'));
+
+  if (!body.dataset.hlWired) {
+    body.dataset.hlWired = '1';
+    body.addEventListener('pointerdown', _hlPointerDown);
+    body.addEventListener('pointermove', _hlPointerMove);
+    body.addEventListener('pointerup', _hlPointerUp);
+    body.addEventListener('pointercancel', _hlPointerUp);
+  }
+
+  applyStoredHighlights();
+  applyStoredVerseNotes();
+}
+
+/* ── reference + note helpers (unchanged behaviour) ─────────────────────── */
 
 function verseRefFor(vn) {
   const s = String(vn);
@@ -9887,79 +10084,184 @@ function verseRefFor(vn) {
   return (currentScriptRef ? currentScriptRef + ':' : '') + vn;
 }
 function verseHasNote(scriptId, vn) {
-  return !!(scriptId && verseNotes[scriptId] && verseNotes[scriptId][vn] && (verseNotes[scriptId][vn].note || '').trim());
+  return !!(scriptId && verseNotes[scriptId] && verseNotes[scriptId][vn]
+    && _htmlHasContent(verseNotes[scriptId][vn].note || ''));
 }
 
-// Re-apply saved verse notes (highlight + dotted underline) when a passage opens.
+function applyStoredHighlights() {
+  if (!currentScriptId) return;
+  const m = verseHighlights[currentScriptId];
+  if (!m) return;
+  Object.keys(m).forEach(function (v) {
+    Object.keys(m[v]).forEach(function (wi) {
+      const el = document.querySelector('#script-modal-body .hl-w[data-verse="' + v + '"][data-wi="' + wi + '"]');
+      if (el) _paintWord(el, m[v][wi]);
+    });
+  });
+}
 function applyStoredVerseNotes() {
   if (!currentScriptId) return;
   const map = verseNotes[currentScriptId];
   if (!map) return;
-  document.querySelectorAll('#script-modal-body .script-verse').forEach(el => {
-    const vn = el.dataset.verse;
-    if (vn && map[vn] && (map[vn].note || '').trim()) el.classList.add('verse-selected', 'verse-has-note');
+  Object.keys(map).forEach(function (vn) {
+    if (_htmlHasContent(map[vn].note || '')) markVerseNoted(vn, true);
   });
 }
-
-function onVerseTap(el) {
-  const vn = el.dataset.verse;
-  if (!vn) return;
-  if (verseHasNote(currentScriptId, vn)) {
-    el.classList.add('verse-selected');   // a noted verse always stays highlighted
-    setActiveVerse(el);
-  } else {
-    const nowSelected = el.classList.toggle('verse-selected');
-    if (nowSelected) setActiveVerse(el);
-    else clearActiveVerse();
-  }
+function markVerseNoted(vn, has) {
+  document.querySelectorAll('#script-modal-body .hl-w[data-verse="' + vn + '"]')
+    .forEach(function (w) { w.classList.toggle('verse-noted', !!has); });
 }
 
-function setActiveVerse(el) {
-  if (activeVerseEl && activeVerseEl !== el) activeVerseEl.classList.remove('verse-active');
-  activeVerseEl = el;
-  el.classList.add('verse-active');
-  document.getElementById('verse-options-ref').textContent = verseRefFor(el.dataset.verse);
-  document.getElementById('verse-options-note-label').textContent =
-    verseHasNote(currentScriptId, el.dataset.verse) ? 'Edit Note' : 'Add Note';
-  document.getElementById('verse-options-copy-label').textContent = 'Copy';
+/* ── painting + persistence (DOM is the source of truth) ────────────────── */
+
+function _paintWord(el, color) {
+  el.classList.remove('hl-c1', 'hl-c2', 'hl-c3', 'hl-c4', 'hl-c5');
+  if (color && color !== 'none') el.classList.add('hl-' + color);
+}
+function _wordColor(el) {
+  for (let i = 0; i < HL_COLORS.length; i++) if (el.classList.contains('hl-' + HL_COLORS[i])) return HL_COLORS[i];
+  return null;
+}
+function persistHighlights() {
+  if (!currentScriptId) return;
+  const m = {};
+  document.querySelectorAll('#script-modal-body .hl-w').forEach(function (w) {
+    const c = _wordColor(w);
+    if (!c) return;
+    const v = w.dataset.verse || '';
+    (m[v] = m[v] || {})[w.dataset.wi] = c;
+  });
+  if (Object.keys(m).length) verseHighlights[currentScriptId] = m;
+  else delete verseHighlights[currentScriptId];
+  try { localStorage.setItem('acts_highlights', JSON.stringify(verseHighlights)); } catch (e) {}
+}
+
+/* ── pointer interaction: tap toggles a word, horizontal drag paints a run ── */
+
+let _hlDown = null, _hlDragging = false, _hlSnapshot = null, _hlRange = null;
+
+function _wordAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest ? el.closest('.hl-w') : null;
+}
+
+function _hlPointerDown(e) {
+  const w = e.target.closest ? e.target.closest('.hl-w') : null;
+  const num = e.target.closest ? e.target.closest('strong[data-v]') : null;
+  if (num && !w) { toggleVerseHighlight(num.dataset.v); return; }
+  if (!w) return;
+  _hlDown = { gi: +w.dataset.gi, x: e.clientX, y: e.clientY, el: w };
+  _hlDragging = false;
+}
+
+function _hlPointerMove(e) {
+  if (!_hlDown) return;
+  if (!_hlDragging) {
+    const dx = Math.abs(e.clientX - _hlDown.x), dy = Math.abs(e.clientY - _hlDown.y);
+    if (dx < 8 && dy < 8) return;
+    if (dx < dy) { _hlDown = null; return; }   // vertical intent -> let it scroll
+    _hlDragging = true;
+    _hlSnapshot = _hlWords.map(_wordColor);
+    _hlRange = [_hlDown.gi, _hlDown.gi];
+  }
+  e.preventDefault();
+  const w = _wordAt(e.clientX, e.clientY);
+  if (w) _hlApplyRange(_hlDown.gi, +w.dataset.gi);
+}
+
+function _hlApplyRange(a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const from = Math.min(lo, _hlRange[0]), to = Math.max(hi, _hlRange[1]);
+  for (let i = from; i <= to; i++) {
+    const el = _hlWords[i];
+    if (!el) continue;
+    if (i >= lo && i <= hi) _paintWord(el, hlActiveColor === 'none' ? null : hlActiveColor);
+    else _paintWord(el, _hlSnapshot[i]);       // outside the current range: restore
+  }
+  _hlRange = [lo, hi];
+}
+
+function _hlPointerUp() {
+  if (!_hlDown) return;
+  if (_hlDragging) {
+    _hlDragging = false;
+    _hlSelection = _hlWords.slice(_hlRange[0], _hlRange[1] + 1);
+    persistHighlights();
+    showVerseBar(_hlDown.el.dataset.verse);
+  } else {
+    const el = _hlDown.el;
+    _paintWord(el, _wordColor(el) ? null : (hlActiveColor === 'none' ? null : hlActiveColor));
+    _hlSelection = [el];
+    persistHighlights();
+    showVerseBar(el.dataset.verse);
+  }
+  _hlDown = null;
+}
+
+function toggleVerseHighlight(vn) {
+  const words = Array.prototype.slice.call(
+    document.querySelectorAll('#script-modal-body .hl-w[data-verse="' + vn + '"]'));
+  if (!words.length) return;
+  const anyUncoloured = words.some(function (w) { return !_wordColor(w); });
+  const color = anyUncoloured ? (hlActiveColor === 'none' ? null : hlActiveColor) : null;
+  words.forEach(function (w) { _paintWord(w, color); });
+  _hlSelection = words;
+  persistHighlights();
+  showVerseBar(vn);
+}
+
+/* ── options bar + colour popover ───────────────────────────────────────── */
+
+function showVerseBar(vn) {
+  if (vn == null) return;
+  activeVerseVn = vn;
+  document.getElementById('verse-options-ref').textContent = verseRefFor(vn);
+  const noteLab = document.getElementById('verse-options-note-label');
+  if (noteLab) noteLab.textContent = verseHasNote(currentScriptId, vn) ? 'Edit Note' : 'Add Note';
   document.getElementById('verse-options-bar').classList.add('open');
 }
 
 function clearActiveVerse() {
-  if (activeVerseEl) activeVerseEl.classList.remove('verse-active');
+  activeVerseVn = null;
   activeVerseEl = null;
+  _hlCloseColorPop();
   const bar = document.getElementById('verse-options-bar');
   if (bar) bar.classList.remove('open');
 }
 
-function copyActiveVerse() {
-  if (!activeVerseEl) return;
-  const text = (activeVerseEl.textContent || '').replace(/^\s*\d+\s*/, '').trim();
-  const payload = text + '\n\n\u2014 ' + verseRefFor(activeVerseEl.dataset.verse) + ' (NIV)';
-  const done = () => {
-    const lbl = document.getElementById('verse-options-copy-label');
-    lbl.textContent = 'Copied!';
-    setTimeout(() => { lbl.textContent = 'Copy'; }, 1300);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(payload).then(done).catch(() => verseFallbackCopy(payload, done));
-  } else verseFallbackCopy(payload, done);
+function toggleColorPop(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const pop = document.getElementById('verse-color-pop');
+  if (pop) pop.classList.toggle('open');
 }
-function verseFallbackCopy(text, cb) {
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.focus(); ta.select();
-  try { document.execCommand('copy'); } catch (e) {}
-  document.body.removeChild(ta); if (cb) cb();
+function _hlCloseColorPop() {
+  const pop = document.getElementById('verse-color-pop');
+  if (pop) pop.classList.remove('open');
+}
+function pickHlColor(c) {
+  hlActiveColor = c;
+  if (_hlSelection && _hlSelection.length) {
+    _hlSelection.forEach(function (w) { _paintWord(w, c === 'none' ? null : c); });
+    persistHighlights();
+  }
+  _hlCloseColorPop();
 }
 
+// Tapping outside the popover closes it (but taps inside the bar keep it).
+document.addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('#verse-options-bar')) return;
+  _hlCloseColorPop();
+});
+
 function openVerseNoteFromBar() {
-  if (!activeVerseEl) return;
-  openVerseNoteModal(currentScriptId, activeVerseEl.dataset.verse);
+  if (activeVerseVn == null) return;
+  openVerseNoteModal(currentScriptId, activeVerseVn);
 }
 /* ── #verse-note-modal — notes on a highlighted verse ──────────────────── */
 
 function verseNoteInput() {
+  const ed = document.getElementById('verse-note-editor');
+  if (ed) _refreshEmpty(ed);
   _naStatus('verse-note-status', 'Saving…', false);
   clearTimeout(_vnTimer);
   _vnTimer = setTimeout(verseNoteSave, 400);
@@ -9970,22 +10272,22 @@ function verseNoteSave() {
   _vnTimer = null;
   if (!verseNoteCtx) return;
   const scriptId = verseNoteCtx.scriptId, vn = verseNoteCtx.vn;
-  const ta = document.getElementById('verse-note-textarea');
-  const text = ta ? ta.value : '';
+  const ed = document.getElementById('verse-note-editor');
+  const html = ed ? _editorValue(ed) : '';
+  const has = _htmlHasContent(html);
   if (!verseNotes[scriptId]) verseNotes[scriptId] = {};
   // Emptying the box removes the note — that is what autosave means here.
-  if (text.trim()) verseNotes[scriptId][vn] = { note: text, ref: verseRefFor(vn), dayKey: currentScriptDayKey };
+  if (has) verseNotes[scriptId][vn] = { note: html, ref: verseRefFor(vn), dayKey: currentScriptDayKey };
   else delete verseNotes[scriptId][vn];
   try { localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes)); } catch (e) {}
 
-  if (activeVerseEl && activeVerseEl.dataset.verse === vn) {
-    if (text.trim()) activeVerseEl.classList.add('verse-selected', 'verse-has-note');
-    else activeVerseEl.classList.remove('verse-has-note');
+  markVerseNoted(vn, has);            // underline the verse's words
+  if (activeVerseVn === vn) {
     const lab = document.getElementById('verse-options-note-label');
-    if (lab) lab.textContent = text.trim() ? 'Edit Note' : 'Add Note';
+    if (lab) lab.textContent = has ? 'Edit Note' : 'Add Note';
   }
   const del = document.getElementById('verse-note-delete');
-  if (del) del.style.display = text.trim() ? '' : 'none';
+  if (del) del.style.display = has ? '' : 'none';
   if (currentScriptDayKey) syncVerseNotesToDay(currentScriptDayKey);
 
   _naStatus('verse-note-status', 'Saved', true);
@@ -9999,17 +10301,18 @@ function openVerseNoteModal(scriptId, vn) {
   verseNoteCtx = { scriptId, vn };
   const existing = (verseNotes[scriptId] && verseNotes[scriptId][vn]) ? verseNotes[scriptId][vn].note : '';
   document.getElementById('verse-note-title').textContent = verseRefFor(vn);
-  const ta = document.getElementById('verse-note-textarea');
-  ta.value = existing || '';
-  document.getElementById('verse-note-delete').style.display = (existing && existing.trim()) ? '' : 'none';
+  const ed = document.getElementById('verse-note-editor');
+  _loadEditor(ed, existing || '');
+  document.getElementById('verse-note-delete').style.display = _htmlHasContent(existing) ? '' : 'none';
   _naStatus('verse-note-status', 'Notes save as you type', true);
   document.getElementById('verse-note-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  setTimeout(function () { ta.focus(); }, 150);
+  setTimeout(function () { ed.focus(); }, 150);
 }
 
 function closeVerseNoteModal() {
   verseNoteSave();                  // flush any pending debounce
+  document.querySelectorAll('.fmt-pop.open').forEach(function (p) { p.classList.remove('open'); });
   document.getElementById('verse-note-modal').classList.remove('open');
   document.body.style.overflow = document.getElementById('script-modal').classList.contains('open') ? 'hidden' : '';
   verseNoteCtx = null;
@@ -10022,41 +10325,72 @@ function deleteVerseNote() {
   _vnTimer = null;
   // Blank the box FIRST: closeVerseNoteModal() flushes, and a flush that still
   // saw the old text would write the note straight back after the delete.
-  const ta = document.getElementById('verse-note-textarea');
-  if (ta) ta.value = '';
+  const ed = document.getElementById('verse-note-editor');
+  if (ed) { ed.innerHTML = ''; _refreshEmpty(ed); }
   if (verseNotes[scriptId]) delete verseNotes[scriptId][vn];
   try { localStorage.setItem('acts_verseNotes', JSON.stringify(verseNotes)); } catch (e) {}
-  if (activeVerseEl && activeVerseEl.dataset.verse === vn) activeVerseEl.classList.remove('verse-has-note', 'verse-selected');
+  markVerseNoted(vn, false);          // remove the verse's note underline
   if (currentScriptDayKey) syncVerseNotesToDay(currentScriptDayKey);
   closeVerseNoteModal();
   clearActiveVerse();
 }
 
 // Mirror verse notes into the day's existing Notes (auto-managed section at the end).
+// Mirror verse notes into the day's reading note as an auto-managed section.
+// Rich-text aware: the section is a contenteditable="false" block tagged
+// data-auto-scripture, so it survives round-trips through the editor, the user
+// can't accidentally edit the mirrored copy, and re-syncing replaces it cleanly
+// instead of the old plain-text sentinel string-splice.
+function _stripAutoSection(html) {
+  if (!html) return '';
+  if (html.indexOf('data-auto-scripture') !== -1) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    tmp.querySelectorAll('[data-auto-scripture]').forEach(function (n) { n.remove(); });
+    // trim a trailing empty block the editor may have left above the section
+    return tmp.innerHTML.replace(/(?:<div>(?:<br>)?<\/div>|<br>)+$/i, '');
+  }
+  // legacy plain-text sentinel from before rich notes
+  const SENT = '——— Scripture Notes ———';
+  const i = html.indexOf(SENT);
+  return i !== -1 ? html.slice(0, i).replace(/\s+$/, '') : html;
+}
+
 function syncVerseNotesToDay(dayKey) {
-  const SENT = '\u2014\u2014\u2014 Scripture Notes \u2014\u2014\u2014';
   const items = [];
-  Object.keys(verseNotes).forEach(sid => {
-    Object.keys(verseNotes[sid]).forEach(vn => {
+  Object.keys(verseNotes).forEach(function (sid) {
+    Object.keys(verseNotes[sid]).forEach(function (vn) {
       const rec = verseNotes[sid][vn];
-      if (rec && rec.dayKey === dayKey && (rec.note || '').trim()) {
-        items.push({ chap: (rec.ref || '').replace(/:\d+$/, ''), vn: parseInt(vn, 10) || 0, ref: rec.ref, note: rec.note.trim() });
+      if (rec && rec.dayKey === dayKey && _htmlHasContent(rec.note || '')) {
+        items.push({ chap: (rec.ref || '').replace(/:\d+$/, ''), vn: parseInt(vn, 10) || 0, ref: rec.ref, note: rec.note });
       }
     });
   });
-  items.sort((a, b) => a.chap < b.chap ? -1 : a.chap > b.chap ? 1 : a.vn - b.vn);
+  items.sort(function (a, b) { return a.chap < b.chap ? -1 : a.chap > b.chap ? 1 : a.vn - b.vn; });
+
   let base = (notesData[dayKey] !== undefined) ? notesData[dayKey] : (DEFAULT_NOTES[dayKey] || '');
-  const idx = base.indexOf(SENT);
-  if (idx !== -1) base = base.slice(0, idx).replace(/\s+$/, '');
+  if (base && !_looksRich(base)) base = esc(base).replace(/\n/g, '<br>');   // upgrade legacy plain base
+  base = _stripAutoSection(base);
+
   let combined = base;
   if (items.length) {
-    const block = items.map(it => it.ref + ' \u2014 ' + it.note).join('\n\n');
-    combined = (base ? base + '\n\n' : '') + SENT + '\n' + block;
+    const rows = items.map(function (it) {
+      return '<div class="vn-row"><span class="vn-ref">' + esc(it.ref) + '</span>'
+        + '<span class="vn-body">' + it.note + '</span></div>';
+    }).join('');
+    const section = '<div data-auto-scripture="1" contenteditable="false" class="vn-auto">'
+      + '<div class="vn-auto-head">Scripture Notes</div>' + rows + '</div>';
+    combined = (_htmlHasContent(base) ? base : '') + section;
   }
+
   notesData[dayKey] = combined;
-  localStorage.setItem('acts_notes', JSON.stringify(notesData));
-  const btn = document.querySelector('[data-note-key="' + dayKey + '"]');
-  if (btn) { const lab = btn.querySelector('.note-btn-label'); if (lab) lab.textContent = combined.trim() ? 'Edit Notes' : 'Add Notes'; }
+  try { localStorage.setItem('acts_notes', JSON.stringify(notesData)); } catch (e) {}
+  const has = _htmlHasContent(combined);
+  document.querySelectorAll('[data-note-key="' + dayKey + '"]').forEach(function (btn) {
+    const lab = btn.querySelector('.note-btn-label');
+    if (lab) lab.textContent = has ? 'Edit Notes' : 'Add Notes';
+    if (btn.classList.contains('qt-note')) btn.classList.toggle('has-note', has);
+  });
 }
 function openScriptModal(id) {
   const s = SCRIPT_CONTENT[id];
@@ -10141,20 +10475,26 @@ const DEFAULT_NOTES = {
 };
 
 /* ═══════════════════════════════════════════════════
-   NOTES AUTOSAVE — every note in the app now behaves like the Discussion
-   Questions answer sheet: debounced save while typing, an immediate save on
-   blur, and a flush on close so a keystroke made just before dismissing the
-   sheet cannot be lost. No Save button anywhere.
+   NOTES — rich-text, autosaving. Every note in the app behaves like the
+   Discussion Questions answer sheet: debounced save while typing, an immediate
+   save on blur, and a flush on close so a keystroke made just before dismissing
+   the sheet cannot be lost. No Save button anywhere.
+
+   The two note sheets are now contenteditable rich editors with a formatting
+   toolbar (bold / italic / underline / bullets / text colour / highlight),
+   built on document.execCommand — deprecated but the only no-dependency option
+   that works in this single-file webview, and still supported everywhere the
+   app runs. Notes are stored as HTML.
 
    Two sheets cover four places, because #notes-modal is shared:
      · Sermon Notes            (Study,    acts_wk<N>_notes)
      · Daily reading pencil    (Devotion, acts_wk<N>_read<i>)
-     · Quiet Time week notes   (Devotion, acts_wk<N>_notes)
+     · Quiet Time week notes   (Devotion, acts_wk<N>_qt)
      · Scripture verse notes   (#verse-note-modal, acts_verseNotes)
 
-   Separate debounce timers per sheet: the verse sheet opens ON TOP of the
-   script modal, so one shared timer could have a close on one cancelling a
-   pending write on the other.
+   BACKWARD COMPAT: notes saved before this change are plain strings. On load,
+   anything without HTML tags is escaped and its newlines turned to <br>, so an
+   old note is never rendered as raw markup and a stray "<" can't inject.
    ═══════════════════════════════════════════════════ */
 let _naTimer = null, _naStatusTimer = null;
 let _vnTimer = null, _vnStatusTimer = null;
@@ -10167,6 +10507,40 @@ let _noteInitial = '', _noteTouched = false;
 // rather than run on every debounce tick.
 let _noteDirtyWeek = null;
 
+/* ── HTML note helpers ──────────────────────────────────────────────────── */
+
+// A note counts as "having content" if it has real text or a list item —
+// contenteditable readily produces "<br>" / "<div><br></div>" for an empty box,
+// and those must read as empty so the Add/Edit label and has-note dot are honest.
+function _htmlHasContent(html) {
+  if (!html) return false;
+  if (/<li[\s>]/i.test(html) || /<img[\s>]/i.test(html)) return true;
+  const t = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/ /g, ' ');
+  // decode the few entities esc() produces, so "&amp;" alone still counts
+  return t.replace(/&[a-z#0-9]+;/gi, 'x').trim() !== '';
+}
+
+function _looksRich(s) {
+  return /<(div|p|br|ul|ol|li|span|b|i|u|strong|em|font)[\s>\/]/i.test(s || '');
+}
+
+// Load a stored value into a contenteditable, upgrading legacy plain text.
+function _loadEditor(el, stored) {
+  if (!stored) el.innerHTML = '';
+  else if (_looksRich(stored)) el.innerHTML = stored;
+  else el.innerHTML = esc(stored).replace(/\n/g, '<br>');
+  _refreshEmpty(el);
+}
+
+// Normalised value to store: '' when effectively empty, else the HTML.
+function _editorValue(el) {
+  return _htmlHasContent(el.innerHTML) ? el.innerHTML : '';
+}
+
+function _refreshEmpty(el) {
+  el.classList.toggle('is-empty', !_htmlHasContent(el.innerHTML));
+}
+
 function _naStatus(id, text, saved) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -10175,9 +10549,79 @@ function _naStatus(id, text, saved) {
   el.classList.toggle('notes-status--saved', !!saved);
 }
 
+/* ── Formatting toolbar (shared by both sheets) ─────────────────────────── */
+
+// The open sheet's editor. Verse sheet sits on top of the script modal, so it
+// wins when both could be open.
+function _openNoteEditor() {
+  if (document.getElementById('verse-note-modal').classList.contains('open'))
+    return document.getElementById('verse-note-editor');
+  if (document.getElementById('notes-modal').classList.contains('open'))
+    return document.getElementById('notes-editor');
+  return null;
+}
+
+function fmtCmd(cmd, val) {
+  const ed = _openNoteEditor();
+  if (!ed) return;
+  ed.focus();
+  // Emit inline CSS (<span style>) rather than <font>/<b>, so every mark is
+  // stored the same clean, themable way. styleWithCSS is a document-sticky flag,
+  // so setting it per call keeps the output predictable regardless of order.
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  try { document.execCommand(cmd, false, val || null); } catch (e) {}
+  _refreshEmpty(ed);
+  if (ed.id === 'verse-note-editor') verseNoteInput(); else noteInput();
+}
+
+const _FMT_SWATCHES = {
+  fore: [['Default', 'default'], ['Red', '#D64545'], ['Amber', '#B7791F'],
+         ['Green', '#4E8A3D'], ['Blue', '#3A7CC2'], ['Purple', '#8A5CC2']],
+  hilite: [['None', 'transparent'], ['Yellow', '#FFE082'], ['Green', '#BEE6A0'],
+           ['Blue', '#A8D8F0'], ['Pink', '#F4B8D0'], ['Orange', '#FFCC99']]
+};
+
+function fmtTogglePop(btn, kind) {
+  const bar = btn.closest('.fmt-bar');
+  const pop = bar.querySelector('.fmt-pop');
+  if (pop.classList.contains('open') && pop.dataset.kind === kind) {
+    pop.classList.remove('open');
+    return;
+  }
+  pop.dataset.kind = kind;
+  pop.innerHTML = _FMT_SWATCHES[kind].map(function (s) {
+    const name = s[0], hex = s[1];
+    const bg = hex === 'default' ? 'var(--md-sys-color-on-surface)'
+      : hex === 'transparent' ? 'transparent' : hex;
+    const cross = hex === 'transparent' ? ' fmt-sw--none' : '';
+    return '<button type="button" class="fmt-sw' + cross + '" title="' + name + '"'
+      + ' style="background:' + bg + '" onmousedown="event.preventDefault()"'
+      + ' onclick="fmtColor(\'' + kind + '\',\'' + hex + '\')"></button>';
+  }).join('');
+  pop.classList.add('open');
+}
+
+function fmtColor(kind, hex) {
+  let val = hex;
+  if (hex === 'default') {
+    val = getComputedStyle(document.documentElement)
+      .getPropertyValue('--md-sys-color-on-surface').trim() || '#1A2013';
+  }
+  fmtCmd(kind === 'fore' ? 'foreColor' : 'hiliteColor', val);
+  document.querySelectorAll('.fmt-pop.open').forEach(function (p) { p.classList.remove('open'); });
+}
+
+// Any tap outside an open swatch popover dismisses it.
+document.addEventListener('click', function (e) {
+  if (e.target.closest('.fmt-bar')) return;
+  document.querySelectorAll('.fmt-pop.open').forEach(function (p) { p.classList.remove('open'); });
+});
+
 /* ── #notes-modal — Sermon Notes, reading pencils, Quiet Time ──────────── */
 
 function noteInput() {
+  const ed = document.getElementById('notes-editor');
+  if (ed) _refreshEmpty(ed);
   _naStatus('notes-status', 'Saving…', false);
   clearTimeout(_naTimer);
   _naTimer = setTimeout(noteSave, 400);
@@ -10186,23 +10630,23 @@ function noteInput() {
 function noteSave() {
   clearTimeout(_naTimer);
   _naTimer = null;
-  const ta = document.getElementById('notes-textarea');
-  if (!ta || currentNoteKey === null) return;
+  const ed = document.getElementById('notes-editor');
+  if (!ed || currentNoteKey === null) return;
+  const val = _editorValue(ed);
   // An untouched sheet must not persist anything — otherwise merely opening a
   // note that has DEFAULT_NOTES text and closing it would silently adopt that
   // default as the user's own writing.
-  if (!_noteTouched && ta.value === _noteInitial) return;
+  if (!_noteTouched && val === _noteInitial) return;
   _noteTouched = true;
 
-  notesData[currentNoteKey] = ta.value;
+  notesData[currentNoteKey] = val;
   try { localStorage.setItem('acts_notes', JSON.stringify(notesData)); } catch (e) {}
 
   // Cheap in-place indicator updates; the expensive card rebuild waits for close.
-  const has = !!ta.value.trim();
+  const has = _htmlHasContent(val);
   document.querySelectorAll('[data-note-key="' + currentNoteKey + '"]').forEach(function (btn) {
     const lab = btn.querySelector('.note-btn-label');
     if (lab) lab.textContent = has ? 'Edit Notes' : 'Add Notes';
-    // The reading pencil has no label — it shows state as a class.
     if (btn.classList.contains('qt-note')) btn.classList.toggle('has-note', has);
   });
   const _wk = /^acts_wk(\d+)_/.exec(currentNoteKey || '');
@@ -10218,21 +10662,22 @@ function noteSave() {
 function openNotesModal(key, title) {
   currentNoteKey = key;
   document.getElementById('notes-modal-title').textContent = title + ' — Notes';
-  const ta = document.getElementById('notes-textarea');
+  const ed = document.getElementById('notes-editor');
   // Use saved note if it exists (even if empty); otherwise fall back to default
-  ta.value = (notesData[key] !== undefined) ? notesData[key] : (DEFAULT_NOTES[key] || '');
-  ta.style.fontSize = notesFontSize + 'px';
-  _noteInitial = ta.value;
+  _loadEditor(ed, (notesData[key] !== undefined) ? notesData[key] : (DEFAULT_NOTES[key] || ''));
+  ed.style.fontSize = notesFontSize + 'px';
+  _noteInitial = _editorValue(ed);
   _noteTouched = false;
   _noteDirtyWeek = null;
   _naStatus('notes-status', 'Notes save as you type', true);
   document.getElementById('notes-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  setTimeout(function () { ta.focus(); }, 150);
+  setTimeout(function () { ed.focus(); }, 150);
 }
 
 function closeNotesModal() {
   noteSave();                       // flush any pending debounce
+  document.querySelectorAll('.fmt-pop.open').forEach(function (p) { p.classList.remove('open'); });
   if (_noteDirtyWeek !== null) {
     const n = _noteDirtyWeek;
     if (activeSection === 'biblical' && typeof refreshDevotionCard === 'function') refreshDevotionCard(n);
@@ -10249,8 +10694,8 @@ function closeNotesModal() {
 function adjustNotesFontSize(delta) {
   notesFontSize = Math.min(26, Math.max(11, notesFontSize + delta));
   localStorage.setItem('acts_notesFontSize', String(notesFontSize));
-  const ta = document.getElementById('notes-textarea');
-  if (ta) ta.style.fontSize = notesFontSize + 'px';
+  const ed = document.getElementById('notes-editor');
+  if (ed) ed.style.fontSize = notesFontSize + 'px';
 }
 
 /* ═══════════════════════════════════════════════════
@@ -11971,7 +12416,7 @@ function wkScrollTop() {
 
 const weekOf     = n => ACTS_WEEKS.find(w => w.n === n);
 const wkNoteKey  = (n, slot) => 'acts_wk' + n + '_' + slot;
-const wkHasNote  = k => !!(notesData[k] && notesData[k].trim());
+const wkHasNote  = k => _htmlHasContent(notesData[k] || '');   // rich-text aware
 const wkReadDone = (n, i) => !!readingDone['wk' + n + '_' + i];
 
 // Week 0 is the study's introduction — a precursor entry in the strip.
@@ -12803,7 +13248,7 @@ function _onCtaScroll() {
         <span class="material-symbols-rounded">close</span>
       </button>
     </div>
-    <textarea id="notes-textarea" class="notes-textarea" placeholder="Write your notes here…" oninput="noteInput()" onblur="noteSave()"></textarea>
+    <div class="fmt-bar"><button type="button" class="fmt-btn" title="Bold" onmousedown="event.preventDefault()" onclick="fmtCmd('bold')"><span class="material-symbols-rounded">format_bold</span></button><button type="button" class="fmt-btn" title="Italic" onmousedown="event.preventDefault()" onclick="fmtCmd('italic')"><span class="material-symbols-rounded">format_italic</span></button><button type="button" class="fmt-btn" title="Underline" onmousedown="event.preventDefault()" onclick="fmtCmd('underline')"><span class="material-symbols-rounded">format_underlined</span></button><button type="button" class="fmt-btn" title="Bullet list" onmousedown="event.preventDefault()" onclick="fmtCmd('insertUnorderedList')"><span class="material-symbols-rounded">format_list_bulleted</span></button><span class="fmt-sep"></span><button type="button" class="fmt-btn" title="Text colour" onmousedown="event.preventDefault()" onclick="fmtTogglePop(this,'fore')"><span class="material-symbols-rounded">format_color_text</span></button><button type="button" class="fmt-btn" title="Highlight" onmousedown="event.preventDefault()" onclick="fmtTogglePop(this,'hilite')"><span class="material-symbols-rounded">ink_highlighter</span></button><div class="fmt-pop"></div></div><div id="notes-editor" class="notes-textarea notes-editor is-empty" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Write your notes here…" oninput="noteInput()" onblur="noteSave()"></div>
     <div class="notes-footer">
       <button class="notes-size-btn" onclick="adjustNotesFontSize(-1)" title="Smaller text">A−</button>
       <button class="notes-size-btn" onclick="adjustNotesFontSize(1)" title="Larger text">A+</button>
@@ -12815,14 +13260,22 @@ function _onCtaScroll() {
 <!-- Verse Options Bar (Scripture: Copy / Add Note) -->
 <div id="verse-options-bar">
   <span class="verse-opt-ref" id="verse-options-ref"></span>
-  <button class="verse-opt-btn" onclick="copyActiveVerse()">
-    <span class="material-symbols-rounded">content_copy</span>
-    <span id="verse-options-copy-label">Copy</span>
+  <button class="verse-opt-btn" onclick="toggleColorPop(event)">
+    <span class="material-symbols-rounded">palette</span>
+    <span>Color</span>
   </button>
   <button class="verse-opt-btn" onclick="openVerseNoteFromBar()">
     <span class="material-symbols-rounded">edit_note</span>
     <span id="verse-options-note-label">Add Note</span>
   </button>
+  <div id="verse-color-pop" class="verse-color-pop">
+    <button class="hl-sw hl-sw-none" title="Erase" onclick="pickHlColor('none')"></button>
+    <button class="hl-sw" style="background:#A3DDCD" title="Green"  onclick="pickHlColor('c1')"></button>
+    <button class="hl-sw" style="background:#FCE38A" title="Yellow" onclick="pickHlColor('c2')"></button>
+    <button class="hl-sw" style="background:#A8D8F0" title="Blue"   onclick="pickHlColor('c3')"></button>
+    <button class="hl-sw" style="background:#F4B8D0" title="Pink"   onclick="pickHlColor('c4')"></button>
+    <button class="hl-sw" style="background:#FFC48A" title="Orange" onclick="pickHlColor('c5')"></button>
+  </div>
 </div>
 
 <!-- Verse Note Modal -->
@@ -12836,7 +13289,7 @@ function _onCtaScroll() {
         <span class="material-symbols-rounded">close</span>
       </button>
     </div>
-    <textarea id="verse-note-textarea" class="notes-textarea" style="flex:none;height:34vh;" placeholder="Add a note for this verse\u2026" oninput="verseNoteInput()" onblur="verseNoteSave()"></textarea>
+    <div class="fmt-bar"><button type="button" class="fmt-btn" title="Bold" onmousedown="event.preventDefault()" onclick="fmtCmd('bold')"><span class="material-symbols-rounded">format_bold</span></button><button type="button" class="fmt-btn" title="Italic" onmousedown="event.preventDefault()" onclick="fmtCmd('italic')"><span class="material-symbols-rounded">format_italic</span></button><button type="button" class="fmt-btn" title="Underline" onmousedown="event.preventDefault()" onclick="fmtCmd('underline')"><span class="material-symbols-rounded">format_underlined</span></button><button type="button" class="fmt-btn" title="Bullet list" onmousedown="event.preventDefault()" onclick="fmtCmd('insertUnorderedList')"><span class="material-symbols-rounded">format_list_bulleted</span></button><span class="fmt-sep"></span><button type="button" class="fmt-btn" title="Text colour" onmousedown="event.preventDefault()" onclick="fmtTogglePop(this,'fore')"><span class="material-symbols-rounded">format_color_text</span></button><button type="button" class="fmt-btn" title="Highlight" onmousedown="event.preventDefault()" onclick="fmtTogglePop(this,'hilite')"><span class="material-symbols-rounded">ink_highlighter</span></button><div class="fmt-pop"></div></div><div id="verse-note-editor" class="notes-textarea notes-editor is-empty" style="flex:none;height:34vh;" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Add a note for this verse…" oninput="verseNoteInput()" onblur="verseNoteSave()"></div>
     <div class="notes-footer">
       <button class="notes-size-btn" id="verse-note-delete" onclick="deleteVerseNote()" style="display:none;">Delete</button>
       <div class="notes-status notes-status--saved" id="verse-note-status"><span class="material-symbols-rounded">cloud_done</span><span>Notes save as you type</span></div>
