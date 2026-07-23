@@ -2636,7 +2636,7 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   padding: 16px 18px;
   background: transparent;
   color: var(--md-sys-color-on-surface);
-  font-family: inherit; font-size: 15px; line-height: 1.7;
+  font-family: inherit; font-size: 16px; line-height: 1.7;
   -webkit-overflow-scrolling: touch; overflow-y: auto;
 }
 .notes-textarea::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 0.6; }
@@ -3074,7 +3074,7 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <button class="nav-tab active" data-section="home">
     <div class="nav-indicator"></div>
     <span class="material-symbols-rounded">home</span>
-    <span class="nav-label">Home</span>
+    <span class="nav-label">Acts</span>
   </button>
   <button class="nav-tab" data-section="explore">
     <div class="nav-indicator"></div>
@@ -10533,7 +10533,7 @@ function toggleScriptFullscreen() {
    ═══════════════════════════════════════════════════ */
 let notesData     = JSON.parse(localStorage.getItem('acts_notes') || '{}');
 let currentNoteKey = null;
-let notesFontSize  = parseInt(localStorage.getItem('acts_notesFontSize') || '15');
+let notesFontSize  = Math.min(26, Math.max(16, parseInt(localStorage.getItem('acts_notesFontSize') || '16')));
 
 // Pre-populated default notes (shown if the user hasn't saved their own yet)
 const DEFAULT_NOTES = {
@@ -10760,7 +10760,7 @@ function closeNotesModal() {
 }
 
 function adjustNotesFontSize(delta) {
-  notesFontSize = Math.min(26, Math.max(11, notesFontSize + delta));
+  notesFontSize = Math.min(26, Math.max(16, notesFontSize + delta));
   localStorage.setItem('acts_notesFontSize', String(notesFontSize));
   const ed = document.getElementById('notes-editor');
   if (ed) ed.style.fontSize = notesFontSize + 'px';
