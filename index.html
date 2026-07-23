@@ -1010,6 +1010,51 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var(--md-sys-color-surface);
 }
 
+/* ── Collapsed speed control (top-right of the audio popups) ──────────────
+   The four speed buttons collapse into one pill showing the current rate,
+   parked in the card's top-right corner so the player is no longer a row
+   taller. Tapping the pill drops a small menu of the options. Used in both
+   audio cards (.np-panel header popover + .listen-now-playing). */
+.speed-menu { position: relative; }
+.np-panel .speed-menu,
+.listen-now-playing .speed-menu { position: absolute; top: 9px; right: 14px; margin: 0; }
+/* reserve room so the (truncating) title can't run under the pill */
+.np-panel .np-title,
+.listen-now-playing .lnp-title { padding-right: 60px; }
+
+.speed-toggle {
+  display: inline-flex; align-items: center; gap: 1px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  padding: 4px 5px 4px 11px; border-radius: 14px; cursor: pointer;
+  background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary);
+  border: none; -webkit-tap-highlight-color: transparent;
+}
+.speed-toggle .speed-caret { font-size: 16px; transition: transform 0.18s ease; }
+.speed-menu.open .speed-toggle .speed-caret { transform: rotate(180deg); }
+
+.speed-pop {
+  display: none;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  flex-direction: column; gap: 2px; padding: 5px; min-width: 70px;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.24);
+}
+.speed-menu.open .speed-pop { display: flex; }
+.speed-opt {
+  font-family: inherit; font-size: 13px; font-weight: 600; text-align: center;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--md-sys-color-on-surface); border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.speed-opt:active { background: var(--md-sys-color-surface-variant); }
+.speed-opt.active { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+
+/* The Listen card sits at the bottom of the screen, so its speed menu opens
+   UPWARD (dropping down would run off-screen behind the nav). The header
+   popover is at the top, so it keeps the default downward drop. */
+.listen-now-playing .speed-pop { top: auto; bottom: calc(100% + 6px); }
+
 /* ── HOW TO USE THIS GUIDE ────────────────────────────────────────────────
    A reading page, not a stack of cards. Typography deliberately echoes the
    printed study journal — monospace rules and headings, a serif lead, a wide
@@ -2893,12 +2938,17 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       <div class="time-display"><span class="ap-elapsed">0:00</span><span class="ap-duration">&mdash;</span></div>
     </div>
   </div>
-  <div class="speed-controls">
-    <span class="speed-label">Speed</span>
-    <button class="speed-btn ap-rate active" data-rate="1" onclick="setRate(currentAudioId,1)">1&times;</button>
-    <button class="speed-btn ap-rate" data-rate="1.2" onclick="setRate(currentAudioId,1.2)">1.2&times;</button>
-    <button class="speed-btn ap-rate" data-rate="1.5" onclick="setRate(currentAudioId,1.5)">1.5&times;</button>
-    <button class="speed-btn ap-rate" data-rate="2" onclick="setRate(currentAudioId,2)">2&times;</button>
+  <div class="speed-menu">
+    <button class="speed-toggle" onclick="toggleSpeedMenu(this)" aria-label="Playback speed" title="Playback speed">
+      <span class="speed-cur">1&times;</span>
+      <span class="material-symbols-rounded speed-caret">expand_more</span>
+    </button>
+    <div class="speed-pop">
+      <button class="speed-opt ap-rate active" data-rate="1" onclick="setRate(currentAudioId,1)">1&times;</button>
+      <button class="speed-opt ap-rate" data-rate="1.2" onclick="setRate(currentAudioId,1.2)">1.2&times;</button>
+      <button class="speed-opt ap-rate" data-rate="1.5" onclick="setRate(currentAudioId,1.5)">1.5&times;</button>
+      <button class="speed-opt ap-rate" data-rate="2" onclick="setRate(currentAudioId,2)">2&times;</button>
+    </div>
   </div>
 </div>
 </div>
@@ -3000,12 +3050,17 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       <div class="time-display"><span class="ap-elapsed">0:00</span><span class="ap-duration">&mdash;</span></div>
     </div>
   </div>
-  <div class="speed-controls">
-    <span class="speed-label">Speed</span>
-    <button class="speed-btn ap-rate active" data-rate="1" onclick="setRate(currentAudioId,1)">1&times;</button>
-    <button class="speed-btn ap-rate" data-rate="1.2" onclick="setRate(currentAudioId,1.2)">1.2&times;</button>
-    <button class="speed-btn ap-rate" data-rate="1.5" onclick="setRate(currentAudioId,1.5)">1.5&times;</button>
-    <button class="speed-btn ap-rate" data-rate="2" onclick="setRate(currentAudioId,2)">2&times;</button>
+  <div class="speed-menu">
+    <button class="speed-toggle" onclick="toggleSpeedMenu(this)" aria-label="Playback speed" title="Playback speed">
+      <span class="speed-cur">1&times;</span>
+      <span class="material-symbols-rounded speed-caret">expand_more</span>
+    </button>
+    <div class="speed-pop">
+      <button class="speed-opt ap-rate active" data-rate="1" onclick="setRate(currentAudioId,1)">1&times;</button>
+      <button class="speed-opt ap-rate" data-rate="1.2" onclick="setRate(currentAudioId,1.2)">1.2&times;</button>
+      <button class="speed-opt ap-rate" data-rate="1.5" onclick="setRate(currentAudioId,1.5)">1.5&times;</button>
+      <button class="speed-opt ap-rate" data-rate="2" onclick="setRate(currentAudioId,2)">2&times;</button>
+    </div>
   </div>
 </div>
     </div>
@@ -4320,6 +4375,7 @@ function renderTrack(id) {
     view.querySelectorAll('.ap-elapsed').forEach(e => e.textContent = formatTime(cur));
     if (dur) view.querySelectorAll('.ap-duration').forEach(d => d.textContent = formatTime(dur));
     view.querySelectorAll('.ap-rate').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.rate) === rate));
+    view.querySelectorAll('.speed-cur').forEach(c => c.textContent = rate + '\u00d7');
   });
 }
 
@@ -4442,7 +4498,19 @@ function setRate(id, rate) {
   const audio = audioPlayers[id];
   if (audio) audio.playbackRate = rate;
   renderTrack(id);
+  document.querySelectorAll('.speed-menu.open').forEach(m => m.classList.remove('open'));
 }
+function toggleSpeedMenu(btn) {
+  const m = btn.closest('.speed-menu');
+  if (!m) return;
+  const open = m.classList.contains('open');
+  document.querySelectorAll('.speed-menu.open').forEach(x => x.classList.remove('open'));
+  if (!open) m.classList.add('open');
+}
+document.addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('.speed-menu')) return;
+  document.querySelectorAll('.speed-menu.open').forEach(m => m.classList.remove('open'));
+});
 
 function startSeekDrag(e, id) {
   const audio = audioPlayers[id];
